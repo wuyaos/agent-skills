@@ -30,6 +30,9 @@ Primary reference:
 
 2. Validate filesystem and metadata contract:
 - Plugin path under `plugins.v2/<plugin_id_lower>/`.
+  - **目录名必须全小写**（如 `sunnyptsignin`，而非 `SunnyPTSignin`）。
+  - MoviePilot 安装时用 `pid.lower()` 拼 GitHub raw 路径（见 `PluginHelper.install` line `file_api += f"/{pid.lower()}"`），GitHub 内容 API 大小写敏感，目录名含大写会导致 **404 无法安装**。
+  - 创建新插件后用 `ls plugins.v2/ | grep -v '^[a-z0-9_-]*$'` 检查是否有大写目录名。
 - Class metadata fields exist and are internally consistent.
 - `package.v2.json` has plugin entry with matching `version`, `name`, `level`.
 - `plugin_version` equals metadata `version`.
@@ -110,6 +113,7 @@ Copy and adapt them when creating a new plugin.
 - `plugin_version` 与 `package.v2.json` `version` 必须同步，漏一处会导致 MP 显示旧版本/无更新提示 → 见 ## Version Sync Procedure
 - 插件图标 GitHub raw URL CDN 缓存约 5 分钟，MP 进程还会缓存图标；需重启 MP 或禁用再启用插件才刷新
 - `init_plugin` 须预创建日志文件（`path.touch`），否则前端首次查看日志 404 → 见 ## Troubleshooting Router 的 page-not-rendering
+- **插件目录名含大写** → 安装时 404 → 目录名必须全小写，见 ## Workflow Step 2
 
 ## Troubleshooting Router
 When plugin behavior is inconsistent with this repo alone, inspect host/frontend integration points:
@@ -123,6 +127,11 @@ Note: `MoviePilot/app/...` paths vary by MP install mode (source/Docker); use th
 | _PluginBase 方法 | `MoviePilot/app/plugins/__init__.py` |
 | Vue 联邦加载 | `MoviePilot-Frontend/src/utils/federationLoader.ts` |
 | 模块联邦指南 | `MoviePilot-Frontend/docs/module-federation-guide.md` |
+
+Common install-404 causes:
+1. **插件目录名含大写** → MoviePilot 用 `pid.lower()` 请求 GitHub raw，大小写不匹配 → 404
+   - 修复：`git mv plugins.v2/MyPlugin plugins.v2/myplugin_tmp && git mv plugins.v2/myplugin_tmp plugins.v2/myplugin`（两步 mv 规避大小写不敏感文件系统）
+2. PLUGIN_MARKET 未配置自己的仓库地址 → 从 jxxghp 官方仓库找不到自定义插件 → 404
 
 Common page-not-rendering causes:
 1. Missing `_enabled = False` class attribute → `get_state()` AttributeError
