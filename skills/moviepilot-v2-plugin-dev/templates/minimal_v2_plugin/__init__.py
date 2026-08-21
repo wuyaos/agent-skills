@@ -82,8 +82,8 @@ class MyPlugin(_PluginBase):
                 "props": {
                     "type": "info",
                     "variant": "tonal",
-                    "text": self._message,
                 },
+                "text": self._message,
             }
         ]
 

@@ -15,6 +15,7 @@ from typing import Any
 from common import api_request, extract_form_model, load_api_key, normalize_base_url, parse_assignment, print_json, redact_text, require_json
 
 SECRET_KEY_RE = re.compile(r"(?:password|passwd|secret|cookie|token|api[_-]?key|authorization)", re.I)
+MASKED_SECRET_VALUES = {"***", "******", "********", "••••••••", "***REDACTED***", "<masked>"}
 
 
 def _parse_secret_assignment(value: str) -> tuple[str, str]:
@@ -33,6 +34,12 @@ def _parse_secret_assignment(value: str) -> tuple[str, str]:
 
 
 def build_plan(model: dict[str, Any], sets: list[str], secret_sets: list[str], allow_business_action: bool) -> tuple[dict[str, Any], dict[str, Any]]:
+    masked = [
+        key for key, value in model.items()
+        if SECRET_KEY_RE.search(key) and isinstance(value, str) and value in MASKED_SECRET_VALUES
+    ]
+    if masked:
+        raise ValueError(f"form model contains masked secrets and cannot be safely round-tripped: {', '.join(sorted(masked))}")
     merged = dict(model)
     changes: dict[str, Any] = {}
     for item in sets:

@@ -8,14 +8,14 @@ Each skill is a folder under `skills/` containing a `SKILL.md` (metadata + instr
 
 | Skill | Description |
 |---|---|
-| [`moviepilot-debug`](skills/moviepilot-debug/) | Debug and analyze a running MoviePilot V2 instance with local CLI and API probes — plugin not loaded, scheduler not firing, log 404, recognition/search failures, startup issues. |
-| [`moviepilot-v2-plugin-dev`](skills/moviepilot-v2-plugin-dev/) | Build and maintain MoviePilot V2 plugins using the official V2 development contract — `get_form`/`get_page`/`get_api`/`get_service` wiring, `package.v2.json` metadata, version sync, registration/render troubleshooting. |
+| [`moviepilot-debug`](skills/moviepilot-debug/) | Script-first, redacted runtime diagnosis for MoviePilot V2/V3 — plugin state, scheduler, logs, safe config merge, qnap/Docker deployment and post-change verification. |
+| [`moviepilot-v2-plugin-dev`](skills/moviepilot-v2-plugin-dev/) | Deterministic MoviePilot plugin development — source contracts, Vuetify/config rules, safe version metadata updates, validation and release handoff. |
 | [`qnap-qpkg-dev`](skills/qnap-qpkg-dev/) | Build, validate, and troubleshoot QNAP QPKG packages with QDK. |
 | [`zotero-word-field-insert`](skills/zotero-word-field-insert/) | Convert `[n]` bracket-style citation markers into Zotero dynamic fields inside `.docx` without breaking Word formatting (Windows + Word + Zotero). |
 
 ## Install
 
-Pick whichever matches your agent harness. All three work with this repo's `skills/` directory layout.
+Pick whichever matches your agent harness. All listed installers work with this repo's `skills/` directory layout.
 
 ### pi
 
@@ -48,10 +48,16 @@ agent-skills/
 ├── .gitignore
 ├── README.md
 └── skills/
-    ├── moviepilot-debug/SKILL.md
+    ├── moviepilot-debug/
+    │   ├── SKILL.md
+    │   ├── scripts/
+    │   ├── references/
+    │   └── tests/
     ├── moviepilot-v2-plugin-dev/
     │   ├── SKILL.md
-    │   ├── references/V2_Plugin_Development.md
+    │   ├── scripts/
+    │   ├── references/
+    │   ├── tests/
     │   └── templates/minimal_v2_plugin/
     ├── qnap-qpkg-dev/SKILL.md
     └── zotero-word-field-insert/

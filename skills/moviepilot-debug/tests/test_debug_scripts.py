@@ -60,6 +60,8 @@ def test_merge_config_blocks_secret_cli_and_business_action():
         MERGE.build_plan(model, ["onlyonce=true"], [], False)
     with pytest.raises(ValueError, match="allow-business-action"):
         MERGE.build_plan({"enabled": True, "onlyonce": True}, ["enabled=false"], [], False)
+    with pytest.raises(ValueError, match="masked secrets"):
+        MERGE.build_plan({"enabled": True, "password": "********"}, ["enabled=false"], [], False)
 
 
 def test_deploy_manifest_excludes_tests_and_caches(tmp_path):

@@ -6,6 +6,8 @@ Dry-run by default. Production files only; tests and caches are excluded.
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import shlex
 import subprocess
@@ -87,8 +89,8 @@ def _build_archive(plugin_dir: Path, manifest: list[str]) -> Path:
 
 
 def _assert_no_onlyonce(base_url: str | None, api_key_file: str | None, plugin_id: str) -> dict[str, Any]:
-    if not base_url and not api_key_file and not __import__("os").environ.get("MP_API_KEY"):
-        return {"checked": False, "reason": "MoviePilot API credentials not provided"}
+    if not base_url and not api_key_file and not os.environ.get("MP_API_KEY"):
+        raise ValueError("deployment apply requires MoviePilot API credentials to guard onlyonce")
     base = normalize_base_url(base_url)
     key = load_api_key(api_key_file)
     path = f"/api/v1/plugin/form/{plugin_id}"
@@ -145,13 +147,27 @@ def run(args) -> dict[str, Any]:
     for path in plugin_dir.rglob("*.py"):
         if "tests" not in path.relative_to(plugin_dir).parts:
             compile(path.read_text(), str(path), "exec")
+    validator = Path(__file__).resolve().parents[2] / "moviepilot-v2-plugin-dev/scripts/validate_plugin.py"
+    validation = None
+    if validator.is_file():
+        checked = subprocess.run(
+            [sys.executable, str(validator), "--repo", str(repo), "--plugin", args.plugin, "--class-name", args.class_name],
+            capture_output=True, text=True,
+        )
+        try:
+            validation = json.loads(checked.stdout)
+        except Exception as error:
+            raise RuntimeError(f"local validator returned invalid output: {error}") from error
+        if checked.returncode != 0 or not validation.get("ok"):
+            failed = [item.get("id") for item in validation.get("errors", [])]
+            raise RuntimeError(f"local plugin validation failed: {', '.join(failed)}")
 
     source = source_manifest(plugin_dir)
     target = f"{args.remote_root.rstrip('/')}/{args.plugin}"
     remote = remote_manifest(args.ssh_host, args.container, args.docker_bin, target)
     plan = build_plan(source, remote)
     reload_guard = None
-    if args.reload:
+    if args.apply or args.reload:
         reload_guard = _assert_no_onlyonce(args.base_url, args.api_key_file, args.class_name)
 
     result = {
@@ -164,6 +180,10 @@ def run(args) -> dict[str, Any]:
         "plan": plan,
         "reload_requested": args.reload,
         "reload_guard": reload_guard,
+        "local_validation": {
+            "available": validation is not None,
+            "ok": validation.get("ok") if validation else None,
+        },
     }
     if not args.apply:
         return result
@@ -200,8 +220,8 @@ def main() -> int:
     parser.add_argument("--reload", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
-    if args.reload and not (args.base_url or __import__("os").environ.get("MP_BASE_URL")):
-        parser.error("--reload requires --base-url or MP_BASE_URL")
+    if (args.apply or args.reload) and not (args.base_url or os.environ.get("MP_BASE_URL")):
+        parser.error("--apply/--reload requires --base-url or MP_BASE_URL")
     try:
         result = run(args)
         print_json(result, args.pretty)
