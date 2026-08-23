@@ -81,6 +81,34 @@ def test_deploy_manifest_excludes_tests_and_caches(tmp_path):
     assert plan["delete_stale"] == ["old.py"]
 
 
+def test_remote_manifest_uses_source_exclusions(monkeypatch):
+    remote_output = "\n".join([
+        "__init__.py",
+        "client.py",
+        "old.py",
+        "__pycache__/client.cpython-312.pyc",
+        ".omc/state/session.json",
+        "tests/test_client.py",
+        ".hidden",
+    ])
+
+    def fake_run_ssh(_host, _command, timeout=40):
+        return type("Result", (), {
+            "returncode": 0,
+            "stdout": remote_output,
+            "stderr": "",
+        })()
+
+    monkeypatch.setattr(DEPLOY, "_run_ssh", fake_run_ssh)
+    remote = DEPLOY.remote_manifest("qnap", "MP", "docker", "/app/app/plugins/demo")
+    assert remote == ["__init__.py", "client.py", "old.py"]
+
+    plan = DEPLOY.build_plan(["__init__.py", "client.py"], remote)
+    assert plan["add"] == []
+    assert plan["overwrite"] == ["__init__.py", "client.py"]
+    assert plan["delete_stale"] == ["old.py"]
+
+
 def test_deploy_rejects_unsafe_target():
     with pytest.raises(ValueError):
         DEPLOY._validate_target("../demo", "qnap", "MP", "docker", "/app/app/plugins")

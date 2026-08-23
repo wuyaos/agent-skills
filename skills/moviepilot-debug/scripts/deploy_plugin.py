@@ -39,16 +39,20 @@ def _validate_target(plugin: str, host: str, container: str, docker_bin: str, re
         raise ValueError("unsafe remote root")
 
 
+def _is_excluded_manifest_path(relative: PurePosixPath | Path) -> bool:
+    """Use one exclusion policy for local source and remote runtime manifests."""
+    return bool(
+        EXCLUDED_PARTS.intersection(relative.parts)
+        or any(part.startswith(".") for part in relative.parts)
+        or relative.suffix in EXCLUDED_SUFFIXES
+    )
+
+
 def source_manifest(plugin_dir: Path) -> list[str]:
     files: list[str] = []
     for path in plugin_dir.rglob("*"):
         relative = path.relative_to(plugin_dir)
-        if (
-            not path.is_file()
-            or EXCLUDED_PARTS.intersection(relative.parts)
-            or any(part.startswith(".") for part in relative.parts)
-            or path.suffix in EXCLUDED_SUFFIXES
-        ):
+        if not path.is_file() or _is_excluded_manifest_path(relative):
             continue
         files.append(relative.as_posix())
     return sorted(files)
@@ -64,7 +68,16 @@ def remote_manifest(host: str, container: str, docker_bin: str, target: str) -> 
     result = _run_ssh(host, command)
     if result.returncode != 0:
         raise RuntimeError(redact_text(result.stderr.strip() or "remote manifest failed"))
-    return sorted(line.strip() for line in result.stdout.splitlines() if line.strip())
+    files = []
+    for line in result.stdout.splitlines():
+        relative_text = line.strip()
+        if not relative_text:
+            continue
+        relative = PurePosixPath(relative_text)
+        if _is_excluded_manifest_path(relative):
+            continue
+        files.append(relative.as_posix())
+    return sorted(files)
 
 
 def build_plan(source: list[str], remote: list[str]) -> dict[str, Any]:
